@@ -1,4 +1,4 @@
-supabase
-RPi.GPIO
-python-dotenv
-schedule
+supabase==1.0.3
+RPi.GPIO==0.7.1
+python-dotenv==1.0.0
+schedule==1.2.0
