@@ -1,6 +1,5 @@
 import time
 
-
 class ControllerService:
     def __init__(self, supabase_handler, gpio_handler, controller_id):
         self.supabase = supabase_handler
@@ -9,14 +8,16 @@ class ControllerService:
         self.devices = {}
 
     def initialize(self):
-        asyncio.run(self.supabase.update_controller_status(is_online=True))
-        self.devices = asyncio.run(self.supabase.get_controller_devices())
-
+        self.supabase.update_controller_status(is_online=True)
+        self.devices = self.supabase.get_controller_devices()
         for device in self.devices.values():
-            if device.get('gpio_pin'):
+            gpio_pin = device.get('gpio_pin')
+            if gpio_pin is not None and isinstance(gpio_pin, int):
                 self.gpio.setup_pin(device)
+            else:
+                print(f"Invalid GPIO pin for device {device['id']}: {gpio_pin}")
 
-        print(f"Initialized {len(self.devices)} devices")
+        print(f"Initialized {len(self.devices)} devices.")
 
     async def subscribe_to_device_changes(self):
         await self.supabase.subscribe_to_devices(self.on_device_change)
@@ -33,17 +34,15 @@ class ControllerService:
             if device['type'] == 'Senzor':
                 value = self.gpio.read_sensor(device)
                 if value is not None:
-                    asyncio.run(self.supabase.update_device_value(device_id, value))
+                    self.supabase.update_device_value(device_id, value)
 
     def update_controller_status(self):
-        asyncio.run(self.supabase.update_controller_status(last_seen=time.time()))
+        self.supabase.update_controller_status(last_seen=time.time())
 
     def check_connection(self):
-        connected = asyncio.run(self.supabase.check_connection())
-        if not connected:
-            print("Reconnecting to Supabase...")
-            asyncio.run(self.supabase.reconnect())
+        if not self.supabase.check_connection():
+            self.supabase.reconnect()
             asyncio.run(self.subscribe_to_device_changes())
 
     def cleanup(self):
-        asyncio.run(self.supabase.update_controller_status(is_online=False))
+        self.supabase.update_controller_status(is_online=False)
