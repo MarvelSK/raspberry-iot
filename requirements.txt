@@ -1,0 +1,4 @@
+supabase
+RPi.GPIO
+python-dotenv
+schedule
