@@ -52,28 +52,34 @@ class RealtimeManager:
         websocket.enableTrace(logger.level <= logging.DEBUG)
 
         def on_message(ws, message):
-            # Process realtime message
+            """Process realtime message from Supabase"""
             try:
                 data = json.loads(message)
 
-                # Handle different message types
-                if 'event' in data and data['event'] == 'INSERT' and data['schema'] == 'public' and data[
-                    'table'] == 'devices':
-                    # New device created
+                event = data.get('event')
+                schema = data.get('schema')
+                table = data.get('table')
+
+                # Check if 'schema' is present and valid
+                if not schema or schema != 'public' or table != 'devices':
+                    logger.warning(f"Invalid or missing schema/table in message: {data}")
+                    return  # Skip processing
+
+                # Handle different events
+                if event == 'INSERT':
                     logger.info(f"New device detected: {data['record']['id']}")
                     self.on_device_update('device_created', data['record'])
 
-                elif 'event' in data and data['event'] == 'UPDATE' and data['schema'] == 'public' and data[
-                    'table'] == 'devices':
-                    # Device updated
+                elif event == 'UPDATE':
                     logger.info(f"Device updated: {data['record']['id']}")
                     self.on_device_update('device_updated', data['record'])
 
-                elif 'event' in data and data['event'] == 'DELETE' and data['schema'] == 'public' and data[
-                    'table'] == 'devices':
-                    # Device deleted
+                elif event == 'DELETE':
                     logger.info(f"Device deleted: {data['old_record']['id']}")
                     self.on_device_update('device_deleted', data['old_record'])
+
+                else:
+                    logger.warning(f"Unhandled event type: {event}")
 
             except json.JSONDecodeError:
                 logger.error("Failed to parse realtime message")
