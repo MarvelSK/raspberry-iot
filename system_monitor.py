@@ -11,16 +11,16 @@ class SystemMonitor:
         logger.info("System monitor initialized")
 
     def get_cpu_usage(self):
-        """Get CPU usage percentage"""
-        return psutil.cpu_percent()
+        """Get CPU usage percentage as integer"""
+        return int(psutil.cpu_percent())
 
     def get_memory_usage(self):
-        """Get memory usage percentage"""
-        return psutil.virtual_memory().percent
+        """Get memory usage percentage as integer"""
+        return int(psutil.virtual_memory().percent)
 
     def get_storage_usage(self):
-        """Get storage usage percentage"""
-        return psutil.disk_usage('/').percent
+        """Get storage usage percentage as integer"""
+        return int(psutil.disk_usage('/').percent)
 
     def get_uptime(self):
         """Get system uptime in format 'Xd Xh Xm Xs'"""
