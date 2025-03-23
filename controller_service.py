@@ -13,7 +13,7 @@ class ControllerService:
                 self.gpio.setup_pin(device)
         print(f"Initialized {len(self.devices)} devices")
 
-    def subscribe_to_device_changes(self):
+    async def subscribe_to_device_changes(self):
         self.supabase.subscribe_to_devices(self.on_device_change)
 
     def on_device_change(self, payload):
@@ -41,3 +41,4 @@ class ControllerService:
 
     def cleanup(self):
         self.supabase.update_controller_status(is_online=False)
+

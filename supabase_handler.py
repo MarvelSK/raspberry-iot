@@ -7,7 +7,7 @@ class SupabaseHandler:
         try:
             self.controller_id = str(UUID(controller_id))
         except ValueError:
-            raise ValueError(f"Invalid UUID format for controller_id: {controller_id}")
+            raise ValueError(f"Invalid UUID format: {controller_id}")
 
     def get_controller_devices(self):
         response = self.supabase.table('control_units_devices')\
@@ -24,17 +24,17 @@ class SupabaseHandler:
             .update({'value': value, 'last_updated': datetime.now().isoformat()})\
             .eq('id', device_id).execute()
 
-    def subscribe_to_devices(self, callback):
-        self.supabase.channel('device-changes')\
+    async def subscribe_to_devices(self, callback):
+        self.supabase.realtime.channel('device-changes')\
             .on('postgres_changes',
                 {'event': 'UPDATE', 'schema': 'public', 'table': 'devices'},
-                callback).subscribe()
+                callback).subscribe()  # Async subscription
 
     def check_connection(self):
         try:
             self.supabase.table('control_units').select('id').limit(1).execute()
             return True
-        except Exception:
+        except:
             return False
 
     def reconnect(self):
