@@ -6,10 +6,23 @@ class GPIOHandler:
         GPIO.setwarnings(False)
 
     def setup_pin(self, device):
-        GPIO.setup(device['gpio_pin'], GPIO.OUT if device['type'] in ['Spínač', 'Termostat'] else GPIO.IN)
+        gpio_pin = device.get('gpio_pin')
+        if gpio_pin is None or not isinstance(gpio_pin, int):
+            print(f"Invalid GPIO pin for device {device['id']}: {gpio_pin}")
+            return
+        GPIO.setup(gpio_pin, GPIO.OUT if device['type'] in ['Spínač', 'Termostat'] else GPIO.IN)
 
     def update_pin_state(self, device):
-        GPIO.output(device['gpio_pin'], GPIO.HIGH if device['value'] else GPIO.LOW)
+        gpio_pin = device.get('gpio_pin')
+        if gpio_pin is None or not isinstance(gpio_pin, int):
+            print(f"Invalid GPIO pin for device {device['id']}: {gpio_pin}")
+            return
+        value = GPIO.HIGH if device['value'] else GPIO.LOW
+        GPIO.output(gpio_pin, value)
 
     def read_sensor(self, device):
-        return GPIO.input(device['gpio_pin'])
+        gpio_pin = device.get('gpio_pin')
+        if gpio_pin is None or not isinstance(gpio_pin, int):
+            print(f"Invalid GPIO pin for sensor {device['id']}: {gpio_pin}")
+            return None
+        return GPIO.input(gpio_pin)
