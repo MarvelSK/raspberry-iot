@@ -1,5 +1,6 @@
 import time
 
+
 class ControllerService:
     def __init__(self, supabase_handler, gpio_handler, controller_id):
         self.supabase = supabase_handler
@@ -8,11 +9,13 @@ class ControllerService:
         self.devices = {}
 
     def initialize(self):
-        self.supabase.update_controller_status(is_online=True)
-        self.devices = self.supabase.get_controller_devices()
+        asyncio.run(self.supabase.update_controller_status(is_online=True))
+        self.devices = asyncio.run(self.supabase.get_controller_devices())
+
         for device in self.devices.values():
             if device.get('gpio_pin'):
                 self.gpio.setup_pin(device)
+
         print(f"Initialized {len(self.devices)} devices")
 
     async def subscribe_to_device_changes(self):
@@ -30,16 +33,17 @@ class ControllerService:
             if device['type'] == 'Senzor':
                 value = self.gpio.read_sensor(device)
                 if value is not None:
-                    self.supabase.update_device_value(device_id, value)
+                    asyncio.run(self.supabase.update_device_value(device_id, value))
 
     def update_controller_status(self):
-        self.supabase.update_controller_status(last_seen=time.time())
+        asyncio.run(self.supabase.update_controller_status(last_seen=time.time()))
 
     def check_connection(self):
-        if not self.supabase.check_connection():
+        connected = asyncio.run(self.supabase.check_connection())
+        if not connected:
             print("Reconnecting to Supabase...")
-            self.supabase.reconnect()
-            self.subscribe_to_device_changes()
+            asyncio.run(self.supabase.reconnect())
+            asyncio.run(self.subscribe_to_device_changes())
 
     def cleanup(self):
-        self.supabase.update_controller_status(is_online=False)
+        asyncio.run(self.supabase.update_controller_status(is_online=False))
