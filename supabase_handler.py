@@ -10,9 +10,12 @@ class SupabaseHandler:
             raise ValueError(f"Invalid UUID format: {controller_id}")
 
     def get_controller_devices(self):
-        response = self.supabase.table('control_units_devices')\
-            .select('device_id, devices:device_id(*)')\
-            .eq('control_unit_id', self.controller_id).execute()
+        response = (
+            self.supabase.table('control_units_devices')
+            .select('device_id, devices:device_id(*)')
+            .eq('control_unit_id', self.controller_id)
+            .execute()
+        )
         return {item['devices']['id']: item['devices'] for item in response.data if item['devices']}
 
     def update_controller_status(self, **status):
@@ -21,36 +24,21 @@ class SupabaseHandler:
 
     def update_device_value(self, device_id, value):
         self.supabase.table('devices')\
-            .update({
-                'value': value,
-                'last_updated': datetime.now().isoformat()
-            })\
+            .update({'value': value, 'last_updated': datetime.now().isoformat()})\
             .eq('id', device_id).execute()
 
     async def subscribe_to_devices(self, callback):
-        """
-        Subscribe to device updates using Supabase Realtime.
-
-        Parameters:
-            callback (function): Async callback to handle updates.
-        """
-        await self.supabase.realtime.channel('device-changes')\
-            .on(
-                'postgres_changes',
+        self.supabase.realtime.channel('device-changes')\
+            .on('postgres_changes',
                 {'event': 'UPDATE', 'schema': 'public', 'table': 'devices'},
-                callback
-            ).subscribe()  # Async subscription
+                callback).subscribe()  # Async subscription
 
     def check_connection(self):
         try:
             self.supabase.table('control_units').select('id').limit(1).execute()
             return True
-        except Exception as e:
-            print(f"Connection check failed: {e}")
+        except:
             return False
 
     def reconnect(self):
-        """
-        Placeholder for reconnect logic if needed.
-        """
         pass
