@@ -14,7 +14,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 CONTROLLER_ID = os.getenv("CONTROLLER_ID")
 
-options = ClientOptions(postgrest_client_timeout=10, realtime={"timeout": 30})
+options = ClientOptions(postgrest_client_timeout=10)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY, options=options)
 
 gpio_handler = GPIOHandler()
