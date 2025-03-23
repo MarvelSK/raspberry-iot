@@ -22,4 +22,4 @@ logging.basicConfig(
         *([] if not CONSOLE_LOGGING else [logging.StreamHandler()])
     ]
 )
-logger = logging.getLogger("rpi_controller")
+logger = logging.getLogger("raspberry-iot") # before "rpi_controller"
