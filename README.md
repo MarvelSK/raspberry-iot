@@ -2,6 +2,14 @@
 
 This project allows a Raspberry Pi to communicate with Supabase to control GPIO pins based on device status stored in the database.
 
+## Logging options
+
+- "DEBUG" - Shows all detailed information (very verbose)
+- "INFO" - Shows general operational information (default)
+- "WARNING" - Shows warnings and errors only
+- "ERROR" - Shows only errors
+- "CRITICAL" - Shows only critical errors
+
 ## Features
 
 - Connect to Supabase and identify as a specific control unit
