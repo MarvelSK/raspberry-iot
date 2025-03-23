@@ -15,7 +15,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 CONTROLLER_ID = os.getenv("CONTROLLER_ID")
 
 options = ClientOptions(postgrest_client_timeout=10)
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY, options=options)
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY, options=options)  # Synchronous client
 
 gpio_handler = GPIOHandler()
 supabase_handler = SupabaseHandler(supabase, CONTROLLER_ID)
@@ -23,7 +23,7 @@ controller_service = ControllerService(supabase_handler, gpio_handler, CONTROLLE
 
 async def main():
     controller_service.initialize()
-    await controller_service.subscribe_to_device_changes()  # Async subscription
+    await controller_service.subscribe_to_device_changes()  # Async for subscription
 
     schedule.every(10).seconds.do(controller_service.update_controller_status)
     schedule.every(5).seconds.do(controller_service.update_sensor_readings)
