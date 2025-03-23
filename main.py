@@ -1,10 +1,11 @@
+# main.py
 import os
 import time
-import asyncio
 import schedule
+import asyncio  # Import asyncio
 import RPi.GPIO as GPIO
 from dotenv import load_dotenv
-from supabase import create_client, ClientOptions
+from supabase import create_client_async, ClientOptions  # Use async client
 from controller_service import ControllerService
 from gpio_handler import GPIOHandler
 from supabase_handler import SupabaseHandler
@@ -14,9 +15,10 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 CONTROLLER_ID = os.getenv("CONTROLLER_ID")
 
-# Async client setup, without realtime 'timeout'
-options = ClientOptions(postgrest_client_timeout=10)
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY, options=options)
+options = ClientOptions(postgrest_client_timeout=10, realtime={"timeout": 30})
+
+# **Fix:** Use async client creation
+supabase = await create_client_async(SUPABASE_URL, SUPABASE_KEY, options=options)
 
 gpio_handler = GPIOHandler()
 supabase_handler = SupabaseHandler(supabase, CONTROLLER_ID)
@@ -26,8 +28,7 @@ controller_service = ControllerService(supabase_handler, gpio_handler, CONTROLLE
 async def main():
     controller_service.initialize()
 
-    # **Fix:** Await the subscription
-    await controller_service.subscribe_to_device_changes()
+    await controller_service.subscribe_to_device_changes()  # Await the async method
 
     schedule.every(10).seconds.do(controller_service.update_controller_status)
     schedule.every(5).seconds.do(controller_service.update_sensor_readings)
@@ -47,4 +48,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())  # Run async main
+    asyncio.run(main())  # Async entry point
