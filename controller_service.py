@@ -14,7 +14,7 @@ class ControllerService:
         print(f"Initialized {len(self.devices)} devices")
 
     async def subscribe_to_device_changes(self):
-        self.supabase.subscribe_to_devices(self.on_device_change)
+        await self.supabase.subscribe_to_devices(self.on_device_change)
 
     def on_device_change(self, payload):
         device_id = payload['new']['id']

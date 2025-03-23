@@ -22,9 +22,12 @@ gpio_handler = GPIOHandler()
 supabase_handler = SupabaseHandler(supabase, CONTROLLER_ID)
 controller_service = ControllerService(supabase_handler, gpio_handler, CONTROLLER_ID)
 
+
 async def main():
     controller_service.initialize()
-    await controller_service.subscribe_to_device_changes()  # Await async function
+
+    # **Fix:** Await the subscription
+    await controller_service.subscribe_to_device_changes()
 
     schedule.every(10).seconds.do(controller_service.update_controller_status)
     schedule.every(5).seconds.do(controller_service.update_sensor_readings)
@@ -41,6 +44,7 @@ async def main():
     finally:
         controller_service.cleanup()
         GPIO.cleanup()
+
 
 if __name__ == "__main__":
     asyncio.run(main())  # Run async main
