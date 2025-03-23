@@ -11,7 +11,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 CONTROL_UNIT_ID = os.getenv("CONTROL_UNIT_ID")
 
 # Configure logging
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "ERROR")
 CONSOLE_LOGGING = os.getenv("CONSOLE_LOGGING", "True").lower() in ("true", "1", "t", "yes")
 
 logging.basicConfig(
