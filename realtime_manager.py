@@ -1,6 +1,7 @@
 import threading
 import logging
 import json
+import time
 from config import logger, SUPABASE_URL, SUPABASE_KEY, CONTROL_UNIT_ID
 import websocket
 
@@ -18,8 +19,7 @@ class RealtimeManager:
         self.stop_requested = False
         self.thread = None
 
-        # Create access token for Supabase Realtime
-        # This is a simplified version - in a production app you'd generate a proper JWT
+        # Use Supabase API key as access token
         self.access_token = SUPABASE_KEY
 
         logger.info("Realtime manager initialized")
@@ -44,59 +44,50 @@ class RealtimeManager:
         logger.info("Realtime manager stopping")
 
     def _connect_and_listen(self):
-        """Connect to Supabase Realtime and listen for changes"""
-        realtime_url = SUPABASE_URL.replace('https://', 'wss://').replace('.supabase.co',
-                                                                          '.supabase.co/realtime/v1/websocket')
+        """Connect to Supabase Realtime and listen for device changes"""
+        realtime_url = SUPABASE_URL.replace(
+            "https://", "wss://"
+        ).replace(".supabase.co", ".supabase.co/realtime/v1/websocket")
         realtime_url += f"?apikey={self.access_token}"
 
         websocket.enableTrace(logger.level <= logging.DEBUG)
 
         def on_message(ws, message):
-            """Process realtime message from Supabase"""
             try:
                 data = json.loads(message)
+                event = data.get("event")
+                topic = data.get("topic")
+                payload = data.get("payload", {})
 
-                event = data.get('event')
-                schema = data.get('schema')
-                table = data.get('table')
+                if event in {"INSERT", "UPDATE", "DELETE"}:
+                    record = payload.get("record") if event != "DELETE" else payload.get("old_record")
+                    if record:
+                        logger.info(f"Device {event.lower()}: {record.get('id')}")
+                        self.on_device_update(f"device_{event.lower()}", record)
+                    else:
+                        logger.warning(f"Record missing in {event} event: {data}")
 
-                # Check if 'schema' is present and valid
-                if not schema or schema != 'public' or table != 'devices':
-                    logger.warning(f"Invalid or missing schema/table in message: {data}")
-                    return  # Skip processing
-
-                # Handle different events
-                if event == 'INSERT':
-                    logger.info(f"New device detected: {data['record']['id']}")
-                    self.on_device_update('device_created', data['record'])
-
-                elif event == 'UPDATE':
-                    logger.info(f"Device updated: {data['record']['id']}")
-                    self.on_device_update('device_updated', data['record'])
-
-                elif event == 'DELETE':
-                    logger.info(f"Device deleted: {data['old_record']['id']}")
-                    self.on_device_update('device_deleted', data['old_record'])
+                elif event in {"phx_reply", "system", "presence_state"}:
+                    logger.debug(f"Control message: {data}")
 
                 else:
-                    logger.warning(f"Unhandled event type: {event}")
+                    logger.warning(f"Unhandled message: {data}")
 
             except json.JSONDecodeError:
-                logger.error("Failed to parse realtime message")
+                logger.error("Failed to decode realtime message")
             except Exception as e:
-                logger.error(f"Error processing realtime message: {e}")
+                logger.error(f"Error processing message: {e}")
 
         def on_error(ws, error):
             logger.error(f"Realtime connection error: {error}")
             self.connected = False
 
         def on_close(ws, close_status_code, close_msg):
-            logger.info(f"Realtime connection closed: {close_msg} ({close_status_code})")
+            logger.info(f"Realtime connection closed: {close_msg} (Code: {close_status_code})")
             self.connected = False
 
-            # Reconnect unless stop was requested
             if not self.stop_requested:
-                logger.info("Attempting to reconnect in 5 seconds...")
+                logger.info("Reconnecting in 5 seconds...")
                 time.sleep(5)
                 self._connect_and_listen()
 
@@ -104,7 +95,6 @@ class RealtimeManager:
             logger.info("Realtime connection established")
             self.connected = True
 
-            # Subscribe to device changes for our control unit
             subscription_msg = {
                 "topic": f"realtime:public:devices:controller_id=eq.{CONTROL_UNIT_ID}",
                 "event": "phx_join",
@@ -119,12 +109,11 @@ class RealtimeManager:
             on_open=on_open,
             on_message=on_message,
             on_error=on_error,
-            on_close=on_close
+            on_close=on_close,
         )
 
         try:
-            # This will block until the connection is closed
             self.ws.run_forever()
         except Exception as e:
-            logger.error(f"Error in realtime websocket: {e}")
+            logger.error(f"Error in websocket connection: {e}")
             self.connected = False
