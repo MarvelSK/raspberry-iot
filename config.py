@@ -20,4 +20,4 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-logger = logging.getLogger("raspberry-iot")
+logger = logging.getLogger("rpi_controller")
