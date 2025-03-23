@@ -28,7 +28,7 @@ class SupabaseHandler:
             .eq('id', self.controller_id) \
             .execute()
 
-        if response.status_code != 200:
+        if response.error:
             print(f"Error updating controller status: {response.error}")
 
     def update_device_value(self, device_id, value):
