@@ -1,12 +1,16 @@
+import time
+import Adafruit_DHT
+from w1thermsensor import W1ThermSensor
 from supabase import create_client, Client
+from config import SUPABASE_URL, SUPABASE_KEY, CONTROL_UNIT_ID, logger
+from datetime import datetime, UTC
 import psutil
 import socket
 import uuid
 import platform
 import threading
-import time
-from datetime import datetime, UTC
-from config import SUPABASE_URL, SUPABASE_KEY, CONTROL_UNIT_ID, logger
+
+from system_monitor import SystemMonitor
 
 
 class SupabaseManager:
@@ -79,14 +83,19 @@ class SupabaseManager:
             self.connected = False
             return False
 
+    # In SupabaseManager, update the `keep_alive` method:
     def keep_alive(self):
         """Continuously update metrics every 60 seconds"""
+        system_monitor = SystemMonitor()  # Create an instance of SystemMonitor
         while self.connected:
             try:
+                # Use SystemMonitor to get metrics
+                metrics = system_monitor.get_metrics()
+
                 update_data = {
-                    "cpu_usage": psutil.cpu_percent(),
-                    "memory_usage": psutil.virtual_memory().percent,
-                    "storage_usage": psutil.disk_usage('/').percent,
+                    "cpu_usage": metrics["cpu_usage"],
+                    "memory_usage": metrics["memory_usage"],
+                    "storage_usage": metrics["storage_usage"],
                     "is_online": True,
                     "last_seen": datetime.now(UTC).isoformat()
                 }
@@ -129,71 +138,61 @@ class SupabaseManager:
             else:
                 logger.warning("No data returned when fetching devices")
                 return []
-
         except Exception as e:
             logger.error(f"Failed to fetch devices: {e}")
             return []
 
-    def update_device_status(self, device_id, is_active=None, value=None):
-        """Update device status in Supabase"""
-        try:
-            update_data = {"last_updated": datetime.now(UTC).isoformat()}
+    def read_ds18b20(self, gpio_pin=4):
+        """Read temperature from DS18B20 sensor."""
+        sensor = W1ThermSensor()
+        temperature = sensor.get_temperature()
+        logger.info(f"DS18B20 Temperature: {temperature}°C")
+        return temperature
 
-            if is_active is not None:
-                update_data["is_active"] = is_active
+    def read_dht22(self, gpio_pin=17):
+        """Read temperature and humidity from DHT22 sensor."""
+        humidity, temperature = Adafruit_DHT.read_retry(Adafruit_DHT.DHT22, gpio_pin)
+        if humidity is not None and temperature is not None:
+            logger.info(f"DHT22 Temperature: {temperature}°C, Humidity: {humidity}%")
+            return temperature, humidity
+        else:
+            logger.error("Failed to get reading from DHT22 sensor")
+            return None, None
 
-            if value is not None:
-                update_data["value"] = value
-
-            response = self.supabase.table("devices").update(
-                update_data
-            ).eq("id", device_id).execute()
-
-            if isinstance(response, dict) and "data" in response and response["data"]:
-                device_data = response["data"][0]
-                action = f"updated to {'on' if is_active else 'off'}" if is_active is not None else ""
-                if value is not None:
-                    if action:
-                        action += f" with value {value}"
-                    else:
-                        action = f"value changed to {value}"
-
-                self.supabase.table("activity_log").insert({
-                    "device_name": device_data.get("name", "Unknown device"),
-                    "device_type": device_data.get("type", "unknown").lower(),
-                    "action": action,
-                    "value": str(value) if value is not None else None,
-                    "timestamp": datetime.now(UTC).isoformat()
-                }).execute()
-
-            logger.info(f"Updated device {device_id} status: active={is_active}, value={value}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Failed to update device status: {e}")
-            return False
-
-    def update_control_unit_metrics(self, cpu_usage, memory_usage, storage_usage, uptime=None):
-        """Update control unit metrics"""
+    def update_sensor_data(self, device_id, temperature=None, humidity=None):
+        """Update sensor data in Supabase."""
         try:
             update_data = {
-                "cpu_usage": cpu_usage,
-                "memory_usage": memory_usage,
-                "storage_usage": storage_usage,
-                "last_seen": datetime.now(UTC).isoformat()
+                "last_updated": datetime.now(UTC).isoformat(),
             }
+            if temperature is not None:
+                update_data["value"] = temperature  # or store as separate temperature/humidity columns
+            if humidity is not None:
+                update_data["humidity"] = humidity  # if you want to store humidity separately
 
-            if uptime:
-                update_data["uptime"] = uptime
+            response = self.supabase.table("devices").update(update_data).eq("id", device_id).execute()
+            logger.info(f"Updated sensor {device_id} data: temperature={temperature}, humidity={humidity}")
+        except Exception as e:
+            logger.error(f"Failed to update sensor data for {device_id}: {e}")
 
-            self.supabase.table("control_units").update(
-                update_data
-            ).eq("id", self.control_unit_id).execute()
+    def check_and_send_sensor_data(self):
+        """Check devices and send sensor data to Supabase if applicable."""
+        try:
+            devices = self.get_devices()
 
-            logger.debug(
-                f"Updated control unit metrics: CPU={cpu_usage}%, MEM={memory_usage}%, STORAGE={storage_usage}%")
-            return True
+            if devices:
+                for device in devices:
+                    if device.get("unit") == "°C" and device.get("gpio_pin"):
+                        if device.get("type") == "DS18B20":
+                            temperature = self.read_ds18b20(device["gpio_pin"])
+                            self.update_sensor_data(device["id"], temperature=temperature)
+                        elif device.get("type") == "DHT22":
+                            temperature, humidity = self.read_dht22(device["gpio_pin"])
+                            if temperature is not None and humidity is not None:
+                                self.update_sensor_data(device["id"], temperature=temperature, humidity=humidity)
+
+            # Sleep for 90 seconds before checking again
+            time.sleep(90)
 
         except Exception as e:
-            logger.error(f"Failed to update control unit metrics: {e}")
-            return False
+            logger.error(f"Error fetching devices or updating sensor data: {e}")

@@ -46,7 +46,6 @@ class RaspberryPiController:
         self.register_devices()
 
         # Schedule periodic tasks
-        schedule.every(30).seconds.do(self.update_system_metrics)
         schedule.every(5).minutes.do(self.register_devices)  # Re-sync devices periodically
 
         # Start realtime listener for immediate updates
@@ -59,7 +58,6 @@ class RaspberryPiController:
         try:
             while self.running:
                 schedule.run_pending()
-                self.check_sensor_devices()  # Regularly check sensors
                 time.sleep(1)
         except Exception as e:
             logger.error(f"Error in main loop: {e}")
@@ -86,30 +84,6 @@ class RaspberryPiController:
             )
 
         return True
-
-    def update_system_metrics(self):
-        """Update system metrics in Supabase"""
-        metrics = self.system.get_metrics()
-        return self.supabase.update_control_unit_metrics(
-            metrics['cpu_usage'],
-            metrics['memory_usage'],
-            metrics['storage_usage'],
-            metrics['uptime']
-        )
-
-    def check_sensor_devices(self):
-        """Read values from sensor devices and update in Supabase"""
-        for device_id, (gpio_pin, state, device_type, value) in list(self.gpio.devices.items()):
-            if device_type.lower() in ["sensor", "temperature", "humidity"]:
-                # Read sensor value
-                new_value = self.gpio.read_sensor(device_id)
-
-                if new_value is not None and new_value != value:
-                    # Value has changed, update in Supabase
-                    self.supabase.update_device_status(device_id, value=new_value)
-
-                    # Update local state
-                    self.gpio.devices[device_id] = (gpio_pin, state, device_type, new_value)
 
     def handle_device_update(self, event_type, device_data):
         """Handle realtime device updates"""
