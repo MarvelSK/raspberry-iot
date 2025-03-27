@@ -1,15 +1,14 @@
-import time
-import Adafruit_DHT
-from w1thermsensor import W1ThermSensor
-from supabase import create_client, Client
-from config import SUPABASE_URL, SUPABASE_KEY, CONTROL_UNIT_ID, logger
-from datetime import datetime, UTC
-import psutil
-import socket
-import uuid
 import platform
+import socket
 import threading
+import time
+import uuid
+from datetime import datetime, UTC
 
+from supabase import create_client, Client
+from w1thermsensor import W1ThermSensor
+
+from config import SUPABASE_URL, SUPABASE_KEY, CONTROL_UNIT_ID, logger
 from system_monitor import SystemMonitor
 
 
@@ -149,16 +148,6 @@ class SupabaseManager:
         logger.info(f"DS18B20 Temperature: {temperature}°C")
         return temperature
 
-    def read_dht22(self, gpio_pin=17):
-        """Read temperature and humidity from DHT22 sensor."""
-        humidity, temperature = Adafruit_DHT.read_retry(Adafruit_DHT.DHT22, gpio_pin)
-        if humidity is not None and temperature is not None:
-            logger.info(f"DHT22 Temperature: {temperature}°C, Humidity: {humidity}%")
-            return temperature, humidity
-        else:
-            logger.error("Failed to get reading from DHT22 sensor")
-            return None, None
-
     def update_sensor_data(self, device_id, temperature=None, humidity=None):
         """Update sensor data in Supabase."""
         try:
@@ -167,8 +156,10 @@ class SupabaseManager:
             }
             if temperature is not None:
                 update_data["value"] = temperature  # or store as separate temperature/humidity columns
+                update_data["unit"] = "°C"
             if humidity is not None:
-                update_data["humidity"] = humidity  # if you want to store humidity separately
+                update_data["value"] = humidity  # if you want to store humidity separately
+                update_data["unit"] = "%"
 
             response = self.supabase.table("devices").update(update_data).eq("id", device_id).execute()
             logger.info(f"Updated sensor {device_id} data: temperature={temperature}, humidity={humidity}")
@@ -182,14 +173,14 @@ class SupabaseManager:
 
             if devices:
                 for device in devices:
+                    # Check if the device is a temperature sensor with '°C' as the unit and has a GPIO pin
                     if device.get("unit") == "°C" and device.get("gpio_pin"):
-                        if device.get("type") == "DS18B20":
-                            temperature = self.read_ds18b20(device["gpio_pin"])
-                            self.update_sensor_data(device["id"], temperature=temperature)
-                        elif device.get("type") == "DHT22":
-                            temperature, humidity = self.read_dht22(device["gpio_pin"])
-                            if temperature is not None and humidity is not None:
-                                self.update_sensor_data(device["id"], temperature=temperature, humidity=humidity)
+                        # Only process DS18B20 devices
+                        if device.get("subtype") == "DS18B20":
+                            temperature = self.read_ds18b20(device["gpio_pin"])  # Read temperature from DS18B20 sensor
+                            if temperature is not None:
+                                # Call update_sensor_data with temperature value
+                                self.update_sensor_data(device["id"], temperature=temperature)  # Corrected call
 
             # Sleep for 90 seconds before checking again
             time.sleep(90)

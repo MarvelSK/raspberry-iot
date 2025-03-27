@@ -84,6 +84,11 @@ class GPIOManager:
             logger.error(f"Error registering device {device_id} to GPIO {gpio_pin}: {e}")
             return False
 
+    def set_gpio_state(self, gpio_pin, state):
+        """Set GPIO pin state for output devices."""
+        GPIO.output(gpio_pin, GPIO.HIGH if state else GPIO.LOW)
+
+
     def update_device_state(self, device_id, state=None, value=None):
         """Update a device's GPIO state or value
 
@@ -114,39 +119,8 @@ class GPIOManager:
             logger.error(f"Error updating device {device_id}: {e}")
             return False
 
-    def read_sensor(self, device_id):
-        """Read value from a sensor device
-
-        Args:
-            device_id: Unique identifier for the device
-
-        Returns:
-            Simulated sensor value or current value stored
-        """
-        if device_id not in self.devices:
-            logger.warning(f"Device {device_id} not registered, cannot read sensor")
-            return None
-
-        gpio_pin, _, device_type, current_value = self.devices[device_id]
-
-        try:
-            if device_type.lower() == "temperature":
-                simulated_value = 20 + (time.time() % 10)
-                logger.debug(f"Temperature sensor {device_id}: {simulated_value:.1f}°C")
-                return simulated_value
-
-            elif device_type.lower() == "humidity":
-                simulated_value = 40 + (time.time() % 20)
-                logger.debug(f"Humidity sensor {device_id}: {simulated_value:.1f}%")
-                return simulated_value
-
-            return current_value
-
-        except Exception as e:
-            logger.error(f"Error reading sensor {device_id}: {e}")
-            return None
-
     def cleanup(self):
-        """Clean up GPIO resources"""
-        GPIO.cleanup()
+        """Clean up GPIO resources for registered devices."""
+        for device_id, (gpio_pin, _, _, _) in self.devices.items():
+            GPIO.cleanup(gpio_pin)  # Clean specific GPIO pins
         logger.info("GPIO cleanup completed")

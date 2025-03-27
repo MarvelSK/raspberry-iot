@@ -40,8 +40,11 @@ class RealtimeManager:
         """Stop the realtime listener"""
         self.stop_requested = True
         if self.ws:
-            self.ws.close()
-        logger.info("Realtime manager stopping")
+            self.ws.close()  # Close WebSocket connection
+            logger.info("WebSocket connection closed.")
+        if self.thread:
+            self.thread.join()  # Ensure the thread has finished
+        logger.info("Realtime manager stopped.")
 
     def _connect_and_listen(self):
         """Connect to Supabase Realtime and listen for device changes"""
@@ -87,13 +90,28 @@ class RealtimeManager:
             self.connected = False
 
             if not self.stop_requested:
-                logger.info("Reconnecting in 5 seconds...")
-                time.sleep(5)
-                self._connect_and_listen()
+                retry_delay = 5
+                attempt = 0
+                while not self.stop_requested and attempt < 5:
+                    attempt += 1
+                    logger.info(f"Reconnecting in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                    self._connect_and_listen()
 
         def on_open(ws):
             logger.info("Realtime connection established")
             self.connected = True
+
+            # Send a ping message every 30 seconds to keep the connection alive
+            def send_ping():
+                while self.connected:
+                    time.sleep(30)
+                    if self.ws:
+                        self.ws.send(json.dumps({"event": "ping"}))
+                        logger.debug("Ping sent to keep connection alive")
+
+            threading.Thread(target=send_ping, daemon=True).start()
 
             subscription_msg = {
                 "topic": f"realtime:public:devices:controller_id=eq.{CONTROL_UNIT_ID}",
