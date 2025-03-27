@@ -78,6 +78,34 @@ Save and exit (`Ctrl + X`, `Y`, `Enter`).
 python main.py
 ```
 
+## Updating the Project
+
+To update your project on the Raspberry Pi (for example, after pulling new changes from the Git repository or updating dependencies):
+
+1. **Pull the latest changes from Git**
+
+   Navigate to your project directory and run:
+
+   ```bash
+   git pull
+   ```
+
+2. **Install any new dependencies**
+
+   If there are any updates to the `requirements.txt` or new dependencies have been added, run:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Restart the service** (if you have set it up as a service)
+
+   If the project is running as a service, restart it after pulling the latest changes:
+
+   ```bash
+   sudo systemctl restart raspberry-iot.service
+   ```
+
 ## Setting up as a Service
 
 To ensure the controller runs automatically at startup:
@@ -139,3 +167,8 @@ tail -f controller.log
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
+
+### Summary of Updates:
+
+- **Update Instructions**: Added a section at the top of the README for pulling the latest changes from the repository and installing new dependencies.
+- **Git Commands**: The necessary steps for using `git pull` and reinstalling any updated dependencies are included.
